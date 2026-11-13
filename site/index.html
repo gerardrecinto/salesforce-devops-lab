@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>salesforce-devops-lab: validate only what changed before a Salesforce deploy</title>
+<meta name="description" content="A Salesforce DX reference project: Apex with SOQL, a Lightning Web Component, two unlocked packages, delta validation and CI. Try the delta planner and an Apex check in your browser.">
+<meta name="theme-color" content="#0369a1">
+<link rel="canonical" href="https://gerardrecinto.github.io/salesforce-devops-lab/">
+<meta property="og:title" content="salesforce-devops-lab: validate only what changed before a Salesforce deploy">
+<meta property="og:description" content="Apex, SOQL, LWC, unlocked packages, delta validation and CI in one small Salesforce DX project. Try it in the browser.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://gerardrecinto.github.io/salesforce-devops-lab/">
+<meta property="og:image" content="https://gerardrecinto.github.io/salesforce-devops-lab/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A git diff of two changed files goes in and a sf project deploy validate command comes out">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="salesforce-devops-lab: validate only what changed before a Salesforce deploy">
+<meta name="twitter:description" content="Apex, SOQL, LWC, unlocked packages, delta validation and CI in one small Salesforce DX project.">
+<meta name="twitter:image" content="https://gerardrecinto.github.io/salesforce-devops-lab/og.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230369a1'/%3E%3Cpath d='M8 20l5-8 4 5 3-4 4 7z' fill='%23e0f2fe'/%3E%3C/svg%3E">
+<style>
+[hidden]{display:none!important}
+:root{--bg:#f8fafc;--panel:#fff;--panel2:#f1f5f9;--line:#e2e8f0;--fg:#0f172a;--mute:#475569;--brand:#0369a1;--brand-bg:#e0f2fe;--btn:#0369a1;--btn-fg:#fff;--err:#b91c1c;--err-bg:#fee2e2;--warn:#b45309;--warn-bg:#fef3c7;--info:#0e7490;--info-bg:#cffafe;--code:#0b1220;--code-fg:#e2e8f0}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#070d1a;--panel:#0d1526;--panel2:#111c33;--line:#1e2b47;--fg:#e8eefc;--mute:#9fb0cc;--brand:#38bdf8;--brand-bg:#082f49;--btn:#38bdf8;--btn-fg:#04202e;--err:#fca5a5;--err-bg:#3b1212;--warn:#fcd34d;--warn-bg:#3a2a07;--info:#67e8f9;--info-bg:#08303a}}
+:root[data-theme=dark]{--bg:#070d1a;--panel:#0d1526;--panel2:#111c33;--line:#1e2b47;--fg:#e8eefc;--mute:#9fb0cc;--brand:#38bdf8;--brand-bg:#082f49;--btn:#38bdf8;--btn-fg:#04202e;--err:#fca5a5;--err-bg:#3b1212;--warn:#fcd34d;--warn-bg:#3a2a07;--info:#67e8f9;--info-bg:#08303a}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--brand)}
+code,pre,textarea,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+nav{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:56px;gap:12px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--fg);text-decoration:none}
+.logo i{width:22px;height:22px;border-radius:6px;background:#0369a1;display:inline-grid;place-items:center}
+.logo svg{width:14px;height:14px}
+nav .links{display:flex;gap:18px;align-items:center;font-size:14px}
+nav .links a{color:var(--mute);text-decoration:none}
+nav .links a:hover{color:var(--fg)}
+nav .links a.btn{color:var(--fg)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;font-weight:600;text-decoration:none;border:1px solid var(--line);color:var(--fg);background:var(--panel);cursor:pointer;font-size:15px}
+.btn.primary{background:var(--btn);border-color:var(--btn);color:var(--btn-fg)}
+.btn,.chip,.step,.card{transition:transform .18s ease-out,background-color .18s ease-out,border-color .18s ease-out}
+.btn:hover,.step:hover{transform:translateY(-2px)}
+.skip{position:absolute;left:8px;top:-60px;z-index:9;background:var(--panel);color:var(--fg);padding:8px 14px;border-radius:8px;border:1px solid var(--line)}
+.skip:focus{top:8px}
+.tw:focus-visible,pre:focus-visible,.btn:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.hero{padding:72px 0 40px;text-align:center}
+h1{font-size:clamp(34px,6vw,58px);line-height:1.08;margin:0 0 18px;letter-spacing:-.02em}
+h1 em{font-style:normal;color:var(--brand)}
+.lede{max-width:700px;margin:0 auto 28px;color:var(--mute);font-size:18px}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+section{padding:56px 0}
+h2{font-size:clamp(26px,4vw,36px);margin:0 0 8px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 28px;max-width:740px}
+.lab{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:860px){.lab{grid-template-columns:minmax(0,1fr)}nav .links .hide-s{display:none}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;min-width:0}
+.card h3{margin:0;padding:12px 16px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.tools{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:600 12px system-ui;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--fg);cursor:pointer;text-transform:none;letter-spacing:0}
+.chip[aria-pressed=true]{background:var(--brand-bg);border-color:var(--brand);color:var(--brand)}
+.tabs{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
+.tab{font:600 14px system-ui;padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.tab[aria-selected=true]{background:var(--btn);border-color:var(--btn);color:var(--btn-fg)}
+.editor{position:relative;height:380px;background:var(--code)}
+.gutter,#src{margin:0;padding:12px 12px 12px 0;font-size:13px;line-height:20px;tab-size:2;white-space:pre;border:0}
+.gutter{position:absolute;left:0;top:0;bottom:0;width:44px;overflow:hidden;color:#94a3b8;text-align:right;padding-right:10px;padding-left:0;user-select:none;background:#080e1b;border-right:1px solid #1e293b}
+.gutter .ln{display:block;height:20px}
+.gutter .ln.e{color:#fca5a5;background:#3b1212}
+.gutter .ln.w{color:#fcd34d;background:#3a2a07}
+.gutter .ln.i{color:#67e8f9;background:#08303a}
+#src{position:absolute;inset:0;width:100%;height:100%;padding-left:56px;background:transparent;color:var(--code-fg);resize:none;overflow:auto}
+.out{height:380px;overflow:auto}
+.status{padding:14px 16px;font-size:14px;color:var(--mute)}
+.f{padding:12px 16px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.f:last-child{border-bottom:0}
+.badge{font:700 11px ui-monospace,monospace;padding:2px 8px;border-radius:6px;height:fit-content}
+.badge.error{background:var(--err-bg);color:var(--err)}
+.badge.warning{background:var(--warn-bg);color:var(--warn)}
+.badge.info{background:var(--info-bg);color:var(--info)}
+.badge.ok{background:var(--brand-bg);color:var(--brand)}
+.f .msg b{font-family:ui-monospace,monospace;margin-right:6px}
+.f .meta,.f .fix{grid-column:2;font-size:13px;color:var(--mute)}
+.f button.jump{all:unset;cursor:pointer;color:var(--brand);text-decoration:underline}
+.plan{padding:14px 16px;font-size:14px}
+.plan h4{margin:14px 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.plan p{margin:0}
+.plan ul{margin:0;padding-left:20px}
+.plan li{margin:2px 0;word-break:break-all}
+.plan code{background:var(--panel2);padding:1px 6px;border-radius:5px}
+.cmd{background:var(--code);color:var(--code-fg);padding:12px 14px;border-radius:10px;font-size:12.5px;white-space:pre-wrap;word-break:break-all;margin:0}
+.summary{padding:12px 16px;border-top:1px solid var(--line);font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--panel2)}
+.note{font-size:13px;color:var(--mute);margin-top:12px}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media (max-width:860px){.steps{grid-template-columns:minmax(0,1fr)}}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+.step .n{width:28px;height:28px;border-radius:8px;background:var(--brand-bg);color:var(--brand);display:grid;place-items:center;font-weight:700;margin-bottom:10px}
+.step h3{margin:0 0 6px;font-size:17px}
+.step p{margin:0;color:var(--mute);font-size:15px}
+table{width:100%;min-width:640px;border-collapse:collapse;font-size:14px}
+.tw{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow-x:auto;max-width:100%}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);background:var(--panel2)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:700;white-space:nowrap}
+.install pre{background:var(--code);color:var(--code-fg);padding:16px;border-radius:12px;overflow-x:auto;font-size:13.5px;margin:0 0 12px}
+.cols2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:860px){.cols2{grid-template-columns:minmax(0,1fr)}}
+.limits{background:var(--panel);border:1px solid var(--line);border-left:4px solid #f59e0b;border-radius:10px;padding:16px 20px;margin-top:20px}
+.limits ul{margin:8px 0 0;padding-left:20px;color:var(--mute)}
+footer{border-top:1px solid var(--line);padding:32px 0;color:var(--mute);font-size:14px}
+footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.qs{position:relative}
+.qs pre{padding-right:84px}
+.copy{z-index:2;position:absolute;top:8px;right:8px;font:600 12px system-ui;padding:6px 10px;border-radius:8px;border:1px solid #334155;background:#111c33;color:#e2e8f0;cursor:pointer;min-height:32px}
+@media (max-width:860px){.chip{padding:9px 12px;min-height:40px}}
+.js .rv{opacity:0;transform:translateY(18px);transition:opacity .55s ease-out,transform .55s ease-out}
+.js .rv.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}.js .rv{opacity:1;transform:none}}
+.pw{color:var(--mute);font-size:14px;margin:0 0 14px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<a class="skip" href="#try">Skip to the demo</a>
+<nav><div class="wrap">
+  <a class="logo" href="#top"><i><svg viewBox="0 0 24 24" fill="#e0f2fe"><path d="M3 18l6-10 5 6 3-4 4 8z"/></svg></i>salesforce-devops-lab</a>
+  <div class="links">
+    <a href="#try" class="hide-s">Try it</a>
+    <a href="#pipeline" class="hide-s">Pipeline</a>
+    <a href="#strategies" class="hide-s">Strategies</a>
+    <a href="#install" class="hide-s">Run it</a>
+    <a class="btn" href="https://github.com/gerardrecinto/salesforce-devops-lab">GitHub</a>
+  </div>
+</div></nav>
+
+<header class="hero" id="top"><div class="wrap">
+  <h1>Validate only what <em>changed</em> before it reaches the org.</h1>
+  <p class="lede">A small Salesforce DX project that shows the release path end to end: Apex with SOQL, a Lightning Web Component, two unlocked packages, a delta validation script and CI. Paste a git diff below and see the exact command it would run.</p>
+  <div class="cta">
+    <a class="btn primary" href="#try">Try the delta planner</a>
+    <a class="btn" href="#install">Run it locally</a>
+  </div>
+</div></header>
+
+<section id="try"><div class="wrap">
+  <h2>Try it in your browser</h2>
+  <p class="sub">Both tools run in this tab and nothing is uploaded. The planner is a copy of the logic in <code>scripts/validate-delta.sh</code>, and a test in CI runs both on the same git repo and checks they agree. The Apex check is a small subset of what PMD checks in CI.</p>
+  <div class="tabs" role="tablist" aria-label="Demo">
+    <button class="tab" role="tab" id="tab-plan" aria-selected="true" aria-controls="panel" data-mode="plan">Delta planner</button>
+    <button class="tab" role="tab" id="tab-apex" aria-selected="false" aria-controls="panel" data-mode="apex">Apex check</button>
+  </div>
+  <div class="lab" id="panel" role="tabpanel">
+    <div class="card">
+      <h3><span id="fname">git diff --name-status main...HEAD</span>
+        <span class="tools" id="samples"></span>
+      </h3>
+      <div class="editor">
+        <div class="gutter" id="gutter" aria-hidden="true"></div>
+        <label class="sr" for="src">Input</label>
+        <textarea id="src" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"></textarea>
+      </div>
+    </div>
+    <div class="card">
+      <h3><span id="out-title">Plan</span></h3>
+      <div class="out" id="out" aria-live="polite"><div class="status">Loading the sample.<noscript> JavaScript is off, so the demo cannot run. The scripts below do the same thing.</noscript></div></div>
+      <div class="summary" id="summary" hidden></div>
+    </div>
+  </div>
+  <p class="note" id="demo-note"></p>
+</div></section>
+
+<section id="pipeline"><div class="wrap">
+  <h2>The release path</h2>
+  <p class="sub">Every step is a file in the repo you can read. The first one runs on every push with no Salesforce login.</p>
+  <div class="steps">
+    <div class="step rv"><div class="n">1</div><h3>Offline checks</h3><p>Prettier for Apex, ESLint, Jest for the LWC, PMD through Code Analyzer, and a source to Metadata API conversion. No org needed.</p></div>
+    <div class="step rv"><div class="n">2</div><h3>Validate the delta</h3><p><code>validate-delta.sh</code> sends only the changed files to a sandbox with <code>RunLocalTests</code>. Deleted files stop it.</p></div>
+    <div class="step rv"><div class="n">3</div><h3>Quick deploy</h3><p>The job id from step 2 ships that exact payload later with <code>sf project deploy quick</code>, so tests are not run twice.</p></div>
+    <div class="step rv"><div class="n">4</div><h3>Package versions</h3><p><code>release.sh</code> builds <code>account-health-core</code> first, then <code>account-health-ui</code>, which depends on it.</p></div>
+    <div class="step rv"><div class="n">5</div><h3>Coverage gate</h3><p>Versions are created with code coverage on. An unlocked package needs 75% to be promoted.</p></div>
+    <div class="step rv"><div class="n">6</div><h3>Promote</h3><p>A manual workflow with a protected environment promotes both versions. Nothing promotes on a push.</p></div>
+  </div>
+</div></section>
+
+<section id="strategies"><div class="wrap">
+  <h2>Deployment strategies and when I would use each</h2>
+  <p class="sub">Each choice has a cost. These are the ones I would be asked to defend.</p>
+  <div class="tw" tabindex="0" role="region" aria-label="Deployment strategies"><table><thead><tr><th>Strategy</th><th>Use it when</th><th>What it costs</th><th>In this repo</th></tr></thead><tbody>
+    <tr><td>Change sets</td><td>One-off move between connected orgs and nobody has CLI access.</td><td>Manual, no history, no diff, cannot be re-run from source control.</td><td>Not used</td></tr>
+    <tr><td>Source deploy</td><td>Day to day deploys and PR validation.</td><td>Org drift is not detected. Deletions need a destructive manifest.</td><td>Used</td></tr>
+    <tr><td>Unlocked packages</td><td>Your own code goes to several orgs and needs versions and rollback.</td><td>Dependency order, a 75% coverage rule, slower than a source deploy.</td><td>Used</td></tr>
+    <tr><td>Managed packages</td><td>You ship to customers you do not control, such as on AppExchange.</td><td>Needs a namespace and a security review. Hard to change once shipped.</td><td>Not built</td></tr>
+    <tr><td>Metadata API</td><td>Older tooling that expects the mdapi format.</td><td>Bigger payloads and no source tracking.</td><td><code>npm run convert</code></td></tr>
+  </tbody></table></div>
+</div></section>
+
+<section id="install" class="install"><div class="wrap">
+  <h2>Run it locally</h2>
+  <p class="sub">Needs Git, Node 20 or newer and Java 17 or newer. The first block needs no Salesforce login.</p>
+  <div class="cols2">
+    <div>
+      <div class="qs"><button class="copy" type="button" hidden>Copy</button>
+<pre tabindex="0"><code>git clone https://github.com/gerardrecinto/salesforce-devops-lab
+cd salesforce-devops-lab
+npm install --global @salesforce/cli@2.158.7
+npm ci
+npm run format:check &amp;&amp; npm run lint &amp;&amp; npm run test:lwc
+npm run scan &amp;&amp; npm run convert &amp;&amp; npm run test:site</code></pre></div>
+      <p class="pw">Each command exits 0 when it passes. <code>npm run scan</code> prints low severity notes and still passes.</p>
+    </div>
+    <div>
+      <div class="qs"><button class="copy" type="button" hidden>Copy</button>
+<pre tabindex="0"><code>scripts/scratch.sh devhub
+sf apex run test --target-org lab --test-level RunLocalTests --code-coverage --wait 10
+scripts/validate-delta.sh lab origin/main</code></pre></div>
+      <p class="pw">This part needs a Dev Hub already authorized as <code>devhub</code>. A free Developer Edition org with Dev Hub turned on works.</p>
+    </div>
+  </div>
+  <div class="limits">
+    <strong>What is checked and what is not</strong>
+    <ul>
+      <li>Checked in CI on every push: LWC Jest tests, ESLint, Prettier, PMD, source conversion, the site logic tests.</li>
+      <li>Not run, because no Dev Hub or sandbox is connected: the Apex tests, scratch org creation, package version creation, validation against a real org, and the two org workflow jobs.</li>
+      <li>This is a lab project. It is not a customer deployment and I do not claim production Salesforce experience from it.</li>
+      <li>The browser Apex check reads text with simple rules. It can miss real problems and can flag fine code. PMD in CI is the real scan.</li>
+    </ul>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <span>salesforce-devops-lab. MIT licensed. Built by <a href="https://github.com/gerardrecinto">Gerard Recinto</a>.</span>
+  <span><a href="https://github.com/gerardrecinto/salesforce-devops-lab">Source</a> &middot; <a href="https://github.com/gerardrecinto/salesforce-devops-lab/blob/main/CHANGELOG.md">Changelog</a> &middot; <a href="https://github.com/gerardrecinto/salesforce-devops-lab/blob/main/SECURITY.md">Security</a></span>
+</div></footer>
+
+<script src="lab.js"></script>
+<script>
+(() => {
+  document.documentElement.classList.add("js");
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const src = $("src"), gutter = $("gutter"), out = $("out"), summary = $("summary"), samples = $("samples");
+
+  const SAMPLES = {
+    plan: {
+      title: "git diff --name-status main...HEAD", outTitle: "Plan",
+      note: "Same file selection as scripts/validate-delta.sh: added, copied, modified and renamed files are validated, a deleted file stops the run, anything outside core/ and ui/ is skipped.",
+      items: [
+        { id: "apex", label: "Apex change", text: "M\tcore/main/default/classes/AccountSelector.cls\nM\tcore/main/default/classes/AccountSelector.cls-meta.xml\nM\tREADME.md" },
+        { id: "both", label: "Apex and LWC", text: "M\tcore/main/default/classes/AccountHealthService.cls\nA\tui/main/default/lwc/staleAccounts/staleAccounts.js\nM\tcore/main/default/permissionsets/AccountHealth_User.permissionset-meta.xml" },
+        { id: "del", label: "File deleted", text: "M\tcore/main/default/classes/AccountHealthService.cls\nD\tcore/main/default/classes/AccountHealthController.cls" },
+        { id: "docs", label: "Docs only", text: "M\tREADME.md\nM\tscripts/release.sh\nM\t.github/workflows/ci.yml" }
+      ]
+    },
+    apex: {
+      title: "Apex class", outTitle: "Findings",
+      note: "Seven rules: SOQL in a loop, DML in a loop, no WITH USER_MODE, no sharing keyword, hard-coded Id, assertion without a message, dynamic SOQL built with +. PMD in CI covers far more.",
+      items: [
+        { id: "risky", label: "Risky", text: "public class AccountSync {\n    public void run(List<Account> accounts) {\n        for (Account a : accounts) {\n            Contact c = [SELECT Id FROM Contact WHERE AccountId = :a.Id LIMIT 1];\n            a.Description = c.Id;\n            update a;\n        }\n        Id rt = '012A0000000ABCDxyz';\n        String name = 'x';\n        Database.query('SELECT Id FROM Account WHERE Name = \\'' + name + '\\'');\n    }\n}\n" },
+        { id: "clean", label: "Clean (this repo)", text: "public with sharing class AccountSelector {\n    public static List<Account> staleAccounts(Date cutoff, Integer maxRows) {\n        return [\n            SELECT Id, Name, Industry, LastActivityDate\n            FROM Account\n            WHERE LastActivityDate = NULL OR LastActivityDate < :cutoff\n            WITH USER_MODE\n            ORDER BY LastActivityDate ASC NULLS FIRST, Name\n            LIMIT :maxRows\n        ];\n    }\n}\n" },
+        { id: "test", label: "Test, bare assert", text: "@IsTest\nprivate class AccountSelectorTest {\n    @IsTest\n    static void returnsRows() {\n        insert new Account(Name = 'A');\n        List<Account> rows = AccountSelector.staleAccounts(Date.today(), 10);\n        System.assertEquals(1, rows.size());\n    }\n}\n" }
+      ]
+    }
+  };
+
+  let mode = "plan", last = [], timer = null;
+
+  function drawGutter() {
+    const n = src.value.split("\n").length;
+    const sev = {};
+    if (mode === "apex") last.forEach((f) => {
+      const c = f.severity[0];
+      if (!sev[f.line] || "eiw".indexOf(c) < "eiw".indexOf(sev[f.line])) sev[f.line] = c;
+    });
+    let h = "";
+    for (let i = 1; i <= n; i++) h += `<span class="ln ${sev[i] || ""}">${i}</span>`;
+    gutter.innerHTML = h;
+    gutter.scrollTop = src.scrollTop;
+  }
+
+  function renderPlan() {
+    const r = Lab.planDelta(src.value, "main");
+    const badge = { validate: ["ok", "VALIDATE"], blocked: ["error", "BLOCKED"], nothing: ["info", "NOTHING TO DO"] }[r.outcome];
+    let h = `<div class="plan"><p><span class="badge ${badge[0]}">${badge[1]}</span> ${esc(r.message)}</p>`;
+    if (r.command) h += `<h4>Command</h4><pre class="cmd">${esc(r.command)}</pre>`;
+    if (r.deleted.length) h += `<h4>Deleted, needs destructiveChanges.xml</h4><ul>${r.deleted.map((f) => `<li class="mono">${esc(f)}</li>`).join("")}</ul>`;
+    if (r.outcome === "validate") h += `<h4>Packages touched, build order</h4><p>${r.touched.map((p) => `<code>${p}</code>`).join(" then ")}</p>`;
+    if (r.notes.length) h += `<h4>Notes</h4><ul>${r.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>`;
+    if (r.ignored.length) h += `<h4>Skipped</h4><ul>${r.ignored.map((i) => `<li><span class="mono">${esc(i.line.replace(/\s+/g, " "))}</span> (${esc(i.why)})</li>`).join("")}</ul>`;
+    out.innerHTML = h + "</div>";
+    summary.hidden = false;
+    summary.innerHTML = `<span class="mono">exit ${r.exitCode}</span><span>${r.exitCode === 0 ? "The script would continue." : "The script would stop."}</span>`;
+  }
+
+  function renderApex() {
+    last = Lab.checkApex(src.value);
+    const c = { error: 0, warning: 0, info: 0 };
+    last.forEach((f) => c[f.severity]++);
+    summary.hidden = false;
+    summary.innerHTML = last.length
+      ? `<span class="badge error">${c.error} error${c.error === 1 ? "" : "s"}</span><span class="badge warning">${c.warning} warning${c.warning === 1 ? "" : "s"}</span><span class="badge info">${c.info} info</span>`
+      : `<span class="badge ok">0 findings</span><span>Nothing from these seven rules.</span>`;
+    out.innerHTML = last.length
+      ? last.map((f) => `<div class="f"><span class="badge ${f.severity}">${f.severity.toUpperCase()}</span><div class="msg"><b>${f.rule}</b>${esc(f.message)}</div><div class="meta">line <button class="jump" data-line="${f.line}">${f.line}</button></div><div class="fix">Fix: ${esc(f.fix)}</div></div>`).join("")
+      : `<div class="status">Nothing to flag in this class.</div>`;
+  }
+
+  function render() { if (mode === "plan") renderPlan(); else renderApex(); drawGutter(); }
+
+  function load(id) {
+    const item = SAMPLES[mode].items.find((i) => i.id === id);
+    src.value = item.text;
+    samples.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.id === id));
+    render();
+  }
+
+  function setMode(m) {
+    mode = m;
+    last = [];
+    document.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", t.dataset.mode === m));
+    const s = SAMPLES[m];
+    $("fname").textContent = s.title;
+    $("out-title").textContent = s.outTitle;
+    $("demo-note").textContent = s.note;
+    samples.innerHTML = s.items.map((i) => `<button class="chip" data-id="${i.id}" aria-pressed="false">${esc(i.label)}</button>`).join("");
+    load(s.items[0].id);
+  }
+
+  samples.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) load(b.dataset.id); });
+  document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => setMode(t.dataset.mode)));
+  src.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(render, 150); drawGutter(); });
+  src.addEventListener("scroll", () => { gutter.scrollTop = src.scrollTop; });
+  out.addEventListener("click", (e) => {
+    const j = e.target.closest(".jump");
+    if (!j) return;
+    const line = +j.dataset.line;
+    const pos = src.value.split("\n").slice(0, line - 1).join("\n").length + (line > 1 ? 1 : 0);
+    src.focus();
+    src.setSelectionRange(pos, pos + (src.value.split("\n")[line - 1] || "").length);
+    src.scrollTop = Math.max(0, (line - 4) * 20);
+  });
+
+  document.querySelectorAll(".copy").forEach((b) => {
+    b.hidden = false;
+    b.addEventListener("click", async () => {
+      const t = b.parentElement.querySelector("code").textContent;
+      try { await navigator.clipboard.writeText(t); b.textContent = "Copied"; } catch (e) { b.textContent = "Select and copy"; }
+      setTimeout(() => (b.textContent = "Copy"), 1600);
+    });
+  });
+
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: 0.15 });
+    document.querySelectorAll(".rv").forEach((el) => io.observe(el));
+  } else document.querySelectorAll(".rv").forEach((el) => el.classList.add("in"));
+
+  setMode("plan");
+})();
+</script>
+</body>
+</html>

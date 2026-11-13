@@ -1,5 +1,9 @@
 # salesforce-devops-lab
 
+[![ci](https://github.com/gerardrecinto/salesforce-devops-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/gerardrecinto/salesforce-devops-lab/actions/workflows/ci.yml) [![site](https://img.shields.io/badge/site-try%20it%20in%20the%20browser-0369a1)](https://gerardrecinto.github.io/salesforce-devops-lab/) ![license](https://img.shields.io/badge/license-MIT-blue)
+
+**Site with a browser demo: https://gerardrecinto.github.io/salesforce-devops-lab/**
+
 A small Salesforce DX project that shows the release path end to end: Apex with SOQL, a Lightning Web Component, two unlocked packages, a delta validation script and GitHub Actions. It is a lab, not something I run in a customer org.
 
 The feature is a stale accounts list: accounts with no activity for N days, read with `WITH USER_MODE`, shown in an LWC.
@@ -13,6 +17,7 @@ The feature is a stale accounts list: accounts with no activity for N days, read
 | `manifest/package.xml` | Metadata API manifest, used for the `source` to `mdapi` conversion. |
 | `config/project-scratch-def.json` | Scratch org shape. |
 | `data/` | Seed records for `sf data import tree`. |
+| `site/` | The GitHub Pages site: delta planner and Apex check that run in the browser. `qa/` tests them, including a check that the planner and `validate-delta.sh` agree. |
 | `scripts/` | `scratch.sh`, `validate-delta.sh`, `bootstrap-packages.sh`, `release.sh`. |
 
 ## Run it
@@ -20,7 +25,7 @@ The feature is a stale accounts list: accounts with no activity for N days, read
 ```bash
 npm install --global @salesforce/cli@2.158.7   # Node 20+ and Java 17+ needed
 npm ci
-npm run format:check && npm run lint && npm run test:lwc && npm run scan && npm run convert
+npm run format:check && npm run lint && npm run test:lwc && npm run scan && npm run convert && npm run test:site
 ```
 
 With a Dev Hub already authorized as `devhub`:
@@ -49,13 +54,13 @@ Metadata API path: `npm run convert` turns the source format into the Metadata A
 
 ## CI
 
-`ci.yml` job `offline` runs on every push and PR with no Salesforce credentials: Prettier (Apex through the Java parser), ESLint, Jest, PMD through Code Analyzer, source conversion, shell syntax check.
+`ci.yml` job `offline` runs on every push and PR with no Salesforce credentials: Prettier (Apex through the Java parser), ESLint, Jest, PMD through Code Analyzer, source conversion, the site logic tests, shell syntax check.
 
 Job `validate` runs only when the repo variable `SF_VALIDATE` is `true` and these secrets exist: `SF_JWT_KEY`, `SF_CLIENT_ID`, `SF_USERNAME` (sandbox). `release.yml` is manual and also needs `SF_DEVHUB_USERNAME`. JWT login needs a connected app with the matching certificate.
 
 ## What is checked and what is not
 
-Checked locally and in CI: LWC Jest (3 tests), ESLint, Prettier, PMD (no violations at Moderate or above), source to Metadata API conversion, `bash -n` on the scripts, and the `validate-delta.sh` file selection and delete guard against a stubbed `sf`.
+Checked locally and in CI: LWC Jest (3 tests), ESLint, Prettier, PMD (no violations at Moderate or above), source to Metadata API conversion, the site tests, `bash -n` on the scripts, and the `validate-delta.sh` file selection and delete guard against a stubbed `sf`.
 
 Not run, because no Dev Hub or sandbox was connected: the Apex tests, scratch org creation, package version creation, `validate-delta.sh` against an org, and the `validate` and `release` workflow jobs. The Apex test that uses the `Minimum Access - Salesforce` profile assumes that profile exists in the org.
 
