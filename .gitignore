@@ -1,0 +1,9 @@
+node_modules/
+build/
+.sf/
+.sfdx/
+.localdevserver/
+coverage/
+*.key
+*.crt
+server.key

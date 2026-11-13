@@ -1,0 +1,27 @@
+{
+  "packageDirectories": [
+    {
+      "path": "core",
+      "default": true,
+      "package": "account-health-core",
+      "versionName": "Core",
+      "versionNumber": "0.1.0.NEXT",
+      "versionDescription": "Apex selector, service, controller and permission set"
+    },
+    {
+      "path": "ui",
+      "package": "account-health-ui",
+      "versionName": "UI",
+      "versionNumber": "0.1.0.NEXT",
+      "versionDescription": "Lightning Web Component",
+      "dependencies": [
+        { "package": "account-health-core", "versionNumber": "0.1.0.LATEST" }
+      ]
+    }
+  ],
+  "name": "salesforce-devops-lab",
+  "namespace": "",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "62.0",
+  "packageAliases": {}
+}

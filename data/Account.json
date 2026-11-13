@@ -1,0 +1,19 @@
+{
+  "records": [
+    {
+      "attributes": { "type": "Account", "referenceId": "A1" },
+      "Name": "Seed Acme",
+      "Industry": "Manufacturing"
+    },
+    {
+      "attributes": { "type": "Account", "referenceId": "A2" },
+      "Name": "Seed Globex",
+      "Industry": "Technology"
+    },
+    {
+      "attributes": { "type": "Account", "referenceId": "A3" },
+      "Name": "Seed Initech",
+      "Industry": "Finance"
+    }
+  ]
+}

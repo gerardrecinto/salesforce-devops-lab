@@ -1,0 +1,11 @@
+{
+  "trailingComma": "none",
+  "singleQuote": true,
+  "tabWidth": 4,
+  "plugins": ["prettier-plugin-apex"],
+  "apexStandaloneParser": "none",
+  "overrides": [
+    { "files": "*.cls", "options": { "parser": "apex" } },
+    { "files": "**/*.{yml,yaml,json}", "options": { "tabWidth": 2 } }
+  ]
+}

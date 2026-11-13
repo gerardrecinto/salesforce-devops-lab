@@ -1,0 +1,36 @@
+name: release
+on:
+  workflow_dispatch:
+    inputs:
+      promote:
+        description: Promote the new package versions to released
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Log in to the Dev Hub
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_USERNAME: ${{ secrets.SF_DEVHUB_USERNAME }}
+        run: |
+          umask 077
+          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/server.key"
+          npx sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" \
+            --username "$SF_USERNAME" --alias devhub
+      - run: scripts/release.sh devhub ${{ inputs.promote && '--promote' || '' }}
+      - if: always()
+        run: rm -f "$RUNNER_TEMP/server.key"

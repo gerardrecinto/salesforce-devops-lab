@@ -1,0 +1,59 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run test:lwc
+      - run: npm run scan
+      - run: npm run convert
+      - run: bash -n scripts/*.sh
+
+  # Runs only when the repo variable SF_VALIDATE is "true" and the secrets below exist.
+  # Validates the changed files against a sandbox with RunLocalTests. Nothing is deployed.
+  validate:
+    if: github.event_name == 'pull_request' && vars.SF_VALIDATE == 'true'
+    needs: offline
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Log in to the sandbox
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+        run: |
+          umask 077
+          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/server.key"
+          npx sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" \
+            --username "$SF_USERNAME" --instance-url https://test.salesforce.com --alias ci
+      - run: scripts/validate-delta.sh ci origin/${{ github.base_ref }}
+      - if: always()
+        run: rm -f "$RUNNER_TEMP/server.key"

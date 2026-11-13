@@ -1,0 +1,26 @@
+<template>
+    <lightning-card title="Stale accounts" icon-name="standard:account">
+        <div class="slds-var-p-horizontal_medium">
+            <lightning-input
+                type="number"
+                label="No activity for (days)"
+                min="1"
+                value={staleDays}
+                onchange={handleDaysChange}
+            ></lightning-input>
+            <template lwc:if={error}>
+                <p class="slds-text-color_error" data-id="error">{error}</p>
+            </template>
+            <template lwc:elseif={hasRows}>
+                <ul data-id="rows">
+                    <template for:each={rows} for:item="row">
+                        <li key={row.Id}>{row.Name}</li>
+                    </template>
+                </ul>
+            </template>
+            <template lwc:else>
+                <p data-id="empty">No stale accounts.</p>
+            </template>
+        </div>
+    </lightning-card>
+</template>

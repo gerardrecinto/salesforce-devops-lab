@@ -1,0 +1,23 @@
+{
+  "name": "salesforce-devops-lab",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Salesforce DX project with unlocked packages, Apex, SOQL, LWC and CI",
+  "scripts": {
+    "test:lwc": "sfdx-lwc-jest",
+    "lint": "eslint ui",
+    "format:check": "prettier --check \"**/*.{cls,js,json,yml}\"",
+    "format": "prettier --write \"**/*.{cls,js,json,yml}\"",
+    "scan": "sf code-analyzer run --workspace core --rule-selector pmd:apex --severity-threshold 3",
+    "convert": "sf project convert source --manifest manifest/package.xml --output-dir build/mdapi"
+  },
+  "devDependencies": {
+    "@lwc/eslint-plugin-lwc": "^3.5.0",
+    "@salesforce/cli": "^2.158.7",
+    "@salesforce/eslint-config-lwc": "^4.1.2",
+    "@salesforce/sfdx-lwc-jest": "^7.9.0",
+    "eslint": "^9.39.5",
+    "prettier": "^3.10.1",
+    "prettier-plugin-apex": "^2.4.0"
+  }
+}
