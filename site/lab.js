@@ -7,28 +7,99 @@
 })(typeof self !== 'undefined' ? self : this, function () {
     const PACKAGES = ['core', 'ui'];
 
-    function planDelta(text, base) {
-        const ref = base || 'origin/main';
+    const TYPES = [
+        'ApexClass',
+        'ApexTrigger',
+        'LightningComponentBundle',
+        'PermissionSet'
+    ];
+
+    /* Map a source path to the metadata component it belongs to, or null if unsupported. */
+    function componentOf(path) {
+        let m;
+        if ((m = path.match(/\/classes\/([^/]+)\.cls(-meta\.xml)?$/)))
+            return {
+                type: 'ApexClass',
+                member: m[1],
+                main: !m[2] || undefined
+            };
+        if ((m = path.match(/\/triggers\/([^/]+)\.trigger(-meta\.xml)?$/)))
+            return {
+                type: 'ApexTrigger',
+                member: m[1],
+                main: !m[2] || undefined
+            };
+        if ((m = path.match(/\/lwc\/([^/]+)\/(.+)$/))) {
+            if (m[2].startsWith('__tests__/')) return null;
+            return {
+                type: 'LightningComponentBundle',
+                member: m[1],
+                main: m[2] === m[1] + '.js-meta.xml'
+            };
+        }
+        if (
+            (m = path.match(
+                /\/permissionsets\/([^/]+)\.permissionset-meta\.xml$/
+            ))
+        )
+            return { type: 'PermissionSet', member: m[1], main: true };
+        return null;
+    }
+
+    function quote(a) {
+        return /^[\w@%+=:,./<>-]+$/.test(a)
+            ? a
+            : "'" + a.replace(/'/g, "'\\''") + "'";
+    }
+
+    function manifestXml(components, apiVersion) {
+        const byType = {};
+        for (const c of components)
+            (byType[c.type] = byType[c.type] || new Set()).add(c.member);
+        let x =
+            '<?xml version="1.0" encoding="UTF-8"?>\n<Package xmlns="http://soap.sforce.com/2006/04/metadata">\n';
+        for (const t of TYPES) {
+            if (!byType[t]) continue;
+            x += '    <types>\n';
+            for (const mem of [...byType[t]].sort())
+                x += '        <members>' + mem + '</members>\n';
+            x += '        <name>' + t + '</name>\n    </types>\n';
+        }
+        return x + '    <version>' + apiVersion + '</version>\n</Package>\n';
+    }
+
+    /* opts: { base, org, apiVersion, selectTests, testClasses } */
+    function planDelta(text, optsOrBase) {
+        const opts =
+            typeof optsOrBase === 'string'
+                ? { base: optsOrBase }
+                : optsOrBase || {};
+        const ref = opts.base || 'origin/main';
+        const org = opts.org || '<org>';
+        const apiVersion = opts.apiVersion || '62.0';
         const changed = [];
-        const deleted = [];
+        const removed = [];
         const ignored = [];
-        const lines = String(text).split('\n');
-        for (const raw of lines) {
+        for (const raw of String(text).split('\n')) {
             const line = raw.trim();
             if (!line) continue;
-            const parts = line.split(/\s+/);
+            const parts = raw.includes('\t')
+                ? raw.trim().split('\t')
+                : line.split(/\s+/);
             const status = parts[0][0];
             const path = parts[parts.length - 1];
             if (!/^[ACDMRTUXB]$/.test(status) || parts.length < 2) {
                 ignored.push({ line, why: 'not a git name-status line' });
                 continue;
             }
-            const top = path.split('/')[0];
-            if (!PACKAGES.includes(top)) {
+            const inScope = (p) => PACKAGES.includes(p.split('/')[0]);
+            if (status === 'R' && parts.length >= 3 && inScope(parts[1]))
+                removed.push(parts[1]);
+            if (!inScope(path)) {
                 ignored.push({ line, why: 'outside core/ and ui/' });
                 continue;
             }
-            if (status === 'D') deleted.push(path);
+            if (status === 'D') removed.push(path);
             else if ('ACMR'.includes(status)) changed.push(path);
             else
                 ignored.push({
@@ -39,35 +110,159 @@
         const touched = PACKAGES.filter((p) =>
             changed.some((f) => f.split('/')[0] === p)
         );
-        if (deleted.length) {
+        const base = {
+            changed,
+            ignored,
+            touched,
+            base: ref,
+            files: {},
+            destructive: [],
+            notes: []
+        };
+
+        if (!changed.length && !removed.length)
             return {
-                outcome: 'blocked',
-                exitCode: 2,
-                changed,
-                deleted,
-                ignored,
-                touched,
-                message:
-                    'Deleted files need a destructiveChanges manifest, not a source deploy. The script stops here.',
-                command: null,
-                notes: []
-            };
-        }
-        if (!changed.length) {
-            return {
+                ...base,
                 outcome: 'nothing',
                 exitCode: 0,
-                changed,
-                deleted,
-                ignored,
-                touched,
-                message: 'No changes under core/ or ui/. Nothing to validate.',
                 command: null,
-                notes: []
+                args: null,
+                message: 'No changes under core/ or ui/. Nothing to validate.'
             };
+
+        /* A deleted file removes a component only when its main file goes. */
+        const newMembers = new Set(
+            changed
+                .map(componentOf)
+                .filter(Boolean)
+                .map((c) => c.type + ':' + c.member)
+        );
+        const destructive = [];
+        const partial = [];
+        const unmappable = [];
+        for (const p of removed) {
+            const c = componentOf(p);
+            if (!c) {
+                unmappable.push(p);
+                continue;
+            }
+            const key = c.type + ':' + c.member;
+            if (c.main) {
+                if (
+                    !newMembers.has(key) &&
+                    !destructive.some(
+                        (d) => d.type === c.type && d.member === c.member
+                    )
+                )
+                    destructive.push({ type: c.type, member: c.member });
+            } else if (
+                c.type === 'LightningComponentBundle' &&
+                !removed.some((q) => {
+                    const o = componentOf(q);
+                    return (
+                        o &&
+                        o.main &&
+                        o.type === c.type &&
+                        o.member === c.member
+                    );
+                })
+            ) {
+                partial.push({ type: c.type, member: c.member });
+            }
         }
-        const args = changed.map((f) => '--source-dir ' + f).join(' ');
+
+        let testArgs = ['--test-level', 'RunLocalTests'];
         const notes = [];
+        if (opts.selectTests) {
+            const avail = new Set(opts.testClasses || []);
+            const wanted = new Set();
+            let ok = true;
+            const classes = new Set(
+                changed
+                    .map(componentOf)
+                    .filter((x) => x && x.type === 'ApexClass')
+                    .map((x) => x.member)
+            );
+            for (const name of [...classes].sort()) {
+                if (/Test$/.test(name)) wanted.add(name);
+                else if (avail.has(name + 'Test')) wanted.add(name + 'Test');
+                else {
+                    ok = false;
+                    notes.push(
+                        name +
+                            ' has no ' +
+                            name +
+                            'Test class, so all local tests run.'
+                    );
+                }
+            }
+            if (ok && wanted.size) {
+                testArgs = ['--test-level', 'RunSpecifiedTests'];
+                for (const t of [...wanted].sort()) testArgs.push('--tests', t);
+                notes.push(
+                    'Only the matching test classes run. A production deploy still needs 75% coverage on each changed class from those tests.'
+                );
+            } else if (ok)
+                notes.push('No Apex class changed, so all local tests run.');
+        }
+
+        const files = {};
+        let args;
+        let mode;
+        if (destructive.length || partial.length || unmappable.length) {
+            mode = 'manifest';
+            const bad = unmappable.concat(
+                changed.filter((f) => !componentOf(f) && !/__tests__\//.test(f))
+            );
+            if (bad.length)
+                return {
+                    ...base,
+                    deleted: removed,
+                    outcome: 'blocked',
+                    exitCode: 2,
+                    command: null,
+                    args: null,
+                    message:
+                        'Cannot build a manifest for ' +
+                        bad.length +
+                        ' file' +
+                        (bad.length === 1 ? '' : 's') +
+                        ': only classes, triggers, LWC bundles and permission sets are mapped. Split the change or extend the mapping.',
+                    unmappable: bad
+                };
+            const members = changed
+                .map(componentOf)
+                .filter(Boolean)
+                .concat(partial);
+            files['build/delta/package.xml'] = manifestXml(members, apiVersion);
+            files['build/delta/destructiveChanges.xml'] = manifestXml(
+                destructive,
+                apiVersion
+            );
+            args = [
+                'project',
+                'deploy',
+                'validate',
+                '--manifest',
+                'build/delta/package.xml',
+                '--post-destructive-changes',
+                'build/delta/destructiveChanges.xml',
+                '--target-org',
+                org,
+                ...testArgs,
+                '--wait',
+                '30'
+            ];
+            notes.unshift(
+                'Deletes run after the deploy (post-destructive), so code that referenced the removed component is already updated.'
+            );
+        } else {
+            mode = 'source';
+            args = ['project', 'deploy', 'validate'];
+            for (const f of changed) args.push('--source-dir', f);
+            args.push('--target-org', org, ...testArgs, '--wait', '30');
+        }
+
         if (touched.includes('ui'))
             notes.push(
                 'ui depends on core. The validation org needs core deployed first, or include core in the change.'
@@ -76,36 +271,33 @@
             notes.push(
                 'A permission set changed. Re-test as a user without it, not only as an admin.'
             );
-        if (
-            changed.some(
-                (f) => /\.cls$/.test(f) && !changed.includes(f + '-meta.xml')
-            )
-        )
-            notes.push(
-                'Apex class without its -meta.xml in the diff. That is fine if only the code changed.'
-            );
         notes.push(
             'On success the job id can be passed to "sf project deploy quick --job-id <id>" so tests are not run twice.'
         );
+        const total = changed.length;
         return {
+            ...base,
             outcome: 'validate',
+            mode,
             exitCode: 0,
-            changed,
-            deleted,
-            ignored,
-            touched,
-            base: ref,
+            deleted: removed,
+            destructive,
+            files,
+            args,
+            command: 'sf ' + args.map(quote).join(' '),
             message:
-                changed.length +
+                total +
                 ' file' +
-                (changed.length === 1 ? '' : 's') +
+                (total === 1 ? '' : 's') +
                 ' to validate against ' +
                 ref +
-                '.',
-            command:
-                'sf project deploy validate ' +
-                args +
-                ' --target-org <org> --test-level RunLocalTests --wait 30',
+                (destructive.length
+                    ? ', ' +
+                      destructive.length +
+                      ' component' +
+                      (destructive.length === 1 ? '' : 's') +
+                      ' to delete.'
+                    : '.'),
             notes
         };
     }
@@ -350,5 +542,5 @@
         return out;
     }
 
-    return { planDelta, checkApex };
+    return { planDelta, checkApex, componentOf };
 });

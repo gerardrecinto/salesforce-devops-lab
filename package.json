@@ -10,7 +10,8 @@
     "format": "prettier --write \"**/*.{cls,js,json,yml}\"",
     "scan": "sf code-analyzer run --workspace core --rule-selector pmd:apex --severity-threshold 3",
     "convert": "sf project convert source --manifest manifest/package.xml --output-dir build/mdapi",
-    "test:site": "node --test qa/lab.test.js"
+    "test:site": "node --test qa/*.test.js",
+    "lint:project": "node scripts/lint-project.js"
   },
   "devDependencies": {
     "@lwc/eslint-plugin-lwc": "^3.5.0",

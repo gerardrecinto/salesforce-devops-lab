@@ -148,7 +148,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 
 <section id="try"><div class="wrap">
   <h2>Try it in your browser</h2>
-  <p class="sub">Both tools run in this tab and nothing is uploaded. The planner is a copy of the logic in <code>scripts/validate-delta.sh</code>, and a test in CI runs both on the same git repo and checks they agree. The Apex check is a small subset of what PMD checks in CI.</p>
+  <p class="sub">Both tools run in this tab and nothing is uploaded. The planner is the same file, <code>site/lab.js</code>, that <code>scripts/validate-delta.sh</code> runs, and a CI test runs the script on a real git repo with renames and deletes. The Apex check is a small subset of what PMD checks in CI.</p>
   <div class="tabs" role="tablist" aria-label="Demo">
     <button class="tab" role="tab" id="tab-plan" aria-selected="true" aria-controls="panel" data-mode="plan">Delta planner</button>
     <button class="tab" role="tab" id="tab-apex" aria-selected="false" aria-controls="panel" data-mode="apex">Apex check</button>
@@ -165,7 +165,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
       </div>
     </div>
     <div class="card">
-      <h3><span id="out-title">Plan</span></h3>
+      <h3><span id="out-title">Plan</span>
+        <label class="chip" id="sel-wrap"><input type="checkbox" id="sel" style="margin-right:6px">Pick tests by name</label></h3>
       <div class="out" id="out" aria-live="polite"><div class="status">Loading the sample.<noscript> JavaScript is off, so the demo cannot run. The scripts below do the same thing.</noscript></div></div>
       <div class="summary" id="summary" hidden></div>
     </div>
@@ -177,8 +178,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
   <h2>The release path</h2>
   <p class="sub">Every step is a file in the repo you can read. The first one runs on every push with no Salesforce login.</p>
   <div class="steps">
-    <div class="step rv"><div class="n">1</div><h3>Offline checks</h3><p>Prettier for Apex, ESLint, Jest for the LWC, PMD through Code Analyzer, and a source to Metadata API conversion. No org needed.</p></div>
-    <div class="step rv"><div class="n">2</div><h3>Validate the delta</h3><p><code>validate-delta.sh</code> sends only the changed files to a sandbox with <code>RunLocalTests</code>. Deleted files stop it.</p></div>
+    <div class="step rv"><div class="n">1</div><h3>Offline checks</h3><p>Prettier for Apex, ESLint, Jest for the LWC, PMD through Code Analyzer, a project lint, and a source to Metadata API conversion. No org needed.</p></div>
+    <div class="step rv"><div class="n">2</div><h3>Validate the delta</h3><p><code>validate-delta.sh</code> sends only the changed files to a sandbox. Deletes and renames go through a generated <code>destructiveChanges.xml</code>. <code>--select-tests</code> runs only the matching test classes.</p></div>
     <div class="step rv"><div class="n">3</div><h3>Quick deploy</h3><p>The job id from step 2 ships that exact payload later with <code>sf project deploy quick</code>, so tests are not run twice.</p></div>
     <div class="step rv"><div class="n">4</div><h3>Package versions</h3><p><code>release.sh</code> builds <code>account-health-core</code> first, then <code>account-health-ui</code>, which depends on it.</p></div>
     <div class="step rv"><div class="n">5</div><h3>Coverage gate</h3><p>Versions are created with code coverage on. An unlocked package needs 75% to be promoted.</p></div>
@@ -209,7 +210,7 @@ cd salesforce-devops-lab
 npm install --global @salesforce/cli@2.158.7
 npm ci
 npm run format:check &amp;&amp; npm run lint &amp;&amp; npm run test:lwc
-npm run scan &amp;&amp; npm run convert &amp;&amp; npm run test:site</code></pre></div>
+npm run scan &amp;&amp; npm run lint:project &amp;&amp; npm run convert &amp;&amp; npm run test:site</code></pre></div>
       <p class="pw">Each command exits 0 when it passes. <code>npm run scan</code> prints low severity notes and still passes.</p>
     </div>
     <div>
@@ -223,8 +224,8 @@ scripts/validate-delta.sh lab origin/main</code></pre></div>
   <div class="limits">
     <strong>What is checked and what is not</strong>
     <ul>
-      <li>Checked in CI on every push: LWC Jest tests, ESLint, Prettier, PMD, source conversion, the site logic tests.</li>
-      <li>Not run, because no Dev Hub or sandbox is connected: the Apex tests, scratch org creation, package version creation, validation against a real org, and the two org workflow jobs.</li>
+      <li>Checked in CI on every push: LWC Jest tests, ESLint, Prettier, PMD, the project lint, source conversion, and tests for the planner and the script on a real git repo.</li>
+      <li>Not run, because no Dev Hub or sandbox is connected: the Apex tests, scratch org creation, package version creation, validation against a real org, and the two org workflow jobs. The destructive manifest follows the documented CLI flags, but no org has accepted it yet.</li>
       <li>This is a lab project. It is not a customer deployment and I do not claim production Salesforce experience from it.</li>
       <li>The browser Apex check reads text with simple rules. It can miss real problems and can flag fine code. PMD in CI is the real scan.</li>
     </ul>
@@ -247,11 +248,12 @@ scripts/validate-delta.sh lab origin/main</code></pre></div>
   const SAMPLES = {
     plan: {
       title: "git diff --name-status main...HEAD", outTitle: "Plan",
-      note: "Same file selection as scripts/validate-delta.sh: added, copied, modified and renamed files are validated, a deleted file stops the run, anything outside core/ and ui/ is skipped.",
+      note: "Same code as scripts/validate-delta.sh. Changed files are validated. A deleted or renamed component goes into a generated destructiveChanges.xml and runs after the deploy. Files outside core/ and ui/ are skipped. Paste your own diff, or tick the box to run only the matching test classes.",
       items: [
         { id: "apex", label: "Apex change", text: "M\tcore/main/default/classes/AccountSelector.cls\nM\tcore/main/default/classes/AccountSelector.cls-meta.xml\nM\tREADME.md" },
         { id: "both", label: "Apex and LWC", text: "M\tcore/main/default/classes/AccountHealthService.cls\nA\tui/main/default/lwc/staleAccounts/staleAccounts.js\nM\tcore/main/default/permissionsets/AccountHealth_User.permissionset-meta.xml" },
-        { id: "del", label: "File deleted", text: "M\tcore/main/default/classes/AccountHealthService.cls\nD\tcore/main/default/classes/AccountHealthController.cls" },
+        { id: "del", label: "Delete and rename", text: "M\tcore/main/default/classes/AccountSelector.cls\nD\tcore/main/default/classes/OldReport.cls\nD\tcore/main/default/classes/OldReport.cls-meta.xml\nR100\tcore/main/default/classes/Sync.cls\tcore/main/default/classes/AccountSync.cls\nD\tui/main/default/lwc/staleAccounts/staleAccounts.css" },
+        { id: "obj", label: "Unmapped file", text: "D\tcore/main/default/objects/Thing__c/Thing__c.object-meta.xml\nM\tcore/main/default/classes/AccountSelector.cls" },
         { id: "docs", label: "Docs only", text: "M\tREADME.md\nM\tscripts/release.sh\nM\t.github/workflows/ci.yml" }
       ]
     },
@@ -282,17 +284,19 @@ scripts/validate-delta.sh lab origin/main</code></pre></div>
   }
 
   function renderPlan() {
-    const r = Lab.planDelta(src.value, "main");
+    const r = Lab.planDelta(src.value, { base: "main", selectTests: $("sel").checked, testClasses: ["AccountSelectorTest", "AccountHealthServiceTest"] });
     const badge = { validate: ["ok", "VALIDATE"], blocked: ["error", "BLOCKED"], nothing: ["info", "NOTHING TO DO"] }[r.outcome];
     let h = `<div class="plan"><p><span class="badge ${badge[0]}">${badge[1]}</span> ${esc(r.message)}</p>`;
     if (r.command) h += `<h4>Command</h4><pre class="cmd">${esc(r.command)}</pre>`;
-    if (r.deleted.length) h += `<h4>Deleted, needs destructiveChanges.xml</h4><ul>${r.deleted.map((f) => `<li class="mono">${esc(f)}</li>`).join("")}</ul>`;
+    if (r.destructive && r.destructive.length) h += `<h4>Deleted after deploy</h4><ul>${r.destructive.map((d) => `<li class="mono">${esc(d.type)}: ${esc(d.member)}</li>`).join("")}</ul>`;
+    if (r.unmappable) h += `<h4>No manifest mapping</h4><ul>${r.unmappable.map((f) => `<li class="mono">${esc(f)}</li>`).join("")}</ul>`;
+    for (const [name, body] of Object.entries(r.files || {})) h += `<h4>${esc(name)}</h4><pre class="cmd">${esc(body)}</pre>`;
     if (r.outcome === "validate") h += `<h4>Packages touched, build order</h4><p>${r.touched.map((p) => `<code>${p}</code>`).join(" then ")}</p>`;
     if (r.notes.length) h += `<h4>Notes</h4><ul>${r.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>`;
     if (r.ignored.length) h += `<h4>Skipped</h4><ul>${r.ignored.map((i) => `<li><span class="mono">${esc(i.line.replace(/\s+/g, " "))}</span> (${esc(i.why)})</li>`).join("")}</ul>`;
     out.innerHTML = h + "</div>";
     summary.hidden = false;
-    summary.innerHTML = `<span class="mono">exit ${r.exitCode}</span><span>${r.exitCode === 0 ? "The script would continue." : "The script would stop."}</span>`;
+    summary.innerHTML = `<span class="mono">exit ${r.exitCode}</span><span>${r.exitCode === 0 ? "The script would run sf." : "The script would stop before running sf."}</span>`;
   }
 
   function renderApex() {
@@ -324,11 +328,13 @@ scripts/validate-delta.sh lab origin/main</code></pre></div>
     const s = SAMPLES[m];
     $("fname").textContent = s.title;
     $("out-title").textContent = s.outTitle;
+    $("sel-wrap").hidden = m !== "plan";
     $("demo-note").textContent = s.note;
     samples.innerHTML = s.items.map((i) => `<button class="chip" data-id="${i.id}" aria-pressed="false">${esc(i.label)}</button>`).join("");
     load(s.items[0].id);
   }
 
+  $("sel").addEventListener("change", render);
   samples.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) load(b.dataset.id); });
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => setMode(t.dataset.mode)));
   src.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(render, 150); drawGutter(); });

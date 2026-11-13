@@ -27,6 +27,7 @@ jobs:
       - run: npm run lint
       - run: npm run test:lwc
       - run: npm run scan
+      - run: npm run lint:project
       - run: npm run convert
       - run: npm run test:site
       - run: bash -n scripts/*.sh
