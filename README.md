@@ -18,6 +18,7 @@ The feature is a stale accounts list: accounts with no activity for N days, read
 ## Run it
 
 ```bash
+npm install --global @salesforce/cli@2.158.7   # Node 20+ and Java 17+ needed
 npm ci
 npm run format:check && npm run lint && npm run test:lwc && npm run scan && npm run convert
 ```

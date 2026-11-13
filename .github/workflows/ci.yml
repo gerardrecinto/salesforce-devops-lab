@@ -22,6 +22,7 @@ jobs:
           distribution: temurin
           java-version: 17
       - run: npm ci
+      - run: npm install --global @salesforce/cli@2.158.7
       - run: npm run format:check
       - run: npm run lint
       - run: npm run test:lwc
@@ -44,6 +45,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm install --global @salesforce/cli@2.158.7
       - name: Log in to the sandbox
         env:
           SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
@@ -52,7 +54,7 @@ jobs:
         run: |
           umask 077
           printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/server.key"
-          npx sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" \
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" \
             --username "$SF_USERNAME" --instance-url https://test.salesforce.com --alias ci
       - run: scripts/validate-delta.sh ci origin/${{ github.base_ref }}
       - if: always()
