@@ -54,7 +54,7 @@ Job `validate` runs only when the repo variable `SF_VALIDATE` is `true` and thes
 
 ## What is checked and what is not
 
-Checked locally and in CI: LWC Jest (3 tests), ESLint, Prettier, PMD (no violations at Moderate or above), source to Metadata API conversion, `bash -n` on the scripts.
+Checked locally and in CI: LWC Jest (3 tests), ESLint, Prettier, PMD (no violations at Moderate or above), source to Metadata API conversion, `bash -n` on the scripts, and the `validate-delta.sh` file selection and delete guard against a stubbed `sf`.
 
 Not run, because no Dev Hub or sandbox was connected: the Apex tests, scratch org creation, package version creation, `validate-delta.sh` against an org, and the `validate` and `release` workflow jobs. The Apex test that uses the `Minimum Access - Salesforce` profile assumes that profile exists in the org.
 
